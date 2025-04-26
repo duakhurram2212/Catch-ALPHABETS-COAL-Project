@@ -1,0 +1,1926 @@
+
+[org 0x0100]
+jmp start
+; <---- (Memory Variables Declaration) ---->
+str2: db 'The CatchALphabets game', 0
+str6: db 'To Start Game', 0
+str10: db 'PRESS ESCAPE FOR END GAME', 0
+str11: db 'PRESS 1 FOR SINGLE PLAYER', 0
+str12: db 'PRESS 2 FOR MULTI-PLAYER', 0
+str7: db '    GAME OVER    ', 0
+str4: db 'SCORE:', 0
+str8: db 'TIME:', 0 
+str9: db 'Score:', 0
+str1: db 'CONGRADULATIONS!YOU WIN', 0 
+str5: db 'CONGRADULATIONS!BOTH OF YOU WIN', 0
+str3: db 'YOU LOSE THE GAME', 0
+str_play_again: db 'Do you want to play again? (Y/N)', 0
+
+att1: dw 63
+att3: dw 0x772A
+att6: dw 7Fh
+att9: dw 3Fh
+
+Score: dw 0   
+oldtime:dd 0
+flag_left1: dw 0  ;for key movements of box1
+flag_right1: dw 0
+box1_location: dw 3920
+box_speed:dw 2
+seconds:dw 0
+
+flag_left2: dw 0  ;for key movements of box2
+flag_right2: dw 0
+box2_location: dw 3920
+Initial: dw 1   ;set box at middle postion at initial state of the game
+oldkb: dd 0
+randalpha: dw 0
+alpha_location: dw 0,0,0,0,0
+time_count: dw 0
+ter:dw 0
+ter1:db 0   ;for checking if player win in single player game
+ter2:db 0   ;for checking if players win in mulltiplayer game
+score: dw 0
+missed:dw 0
+score_str: db 'score: ','0'
+missedstr: db 'missed: ','0'
+
+speed_factor: dw 10
+speed_factor1:dw 9
+
+rand: dw 0
+randnum: dw 0
+
+msg: db 'GAME OVER','0'
+; <----(Background Function)---->
+Background:
+    push ax
+    push es
+    push cx 
+    push di
+
+    mov ax , 0xb800
+    mov es , ax
+    xor di , di
+    mov cx , 2000
+    mov ax , 0x3320
+    cld
+    rep stosw
+
+    pop di
+    pop cx
+    pop es
+    pop ax
+    ret
+
+; <----(String Printing Function)---->
+strinprint:
+    push bp
+    mov bp , sp
+    push di
+    push cx
+    push ax
+    push es
+    push si
+    push bx
+    push ds
+    pop es
+
+    mov di , [bp + 6]
+    mov cx , 0xffff
+    mov bx , cx 
+    xor al , al
+
+    repne scasb 
+    sub bx , cx
+    dec bx
+    jz ex
+
+    mov cx , bx
+    mov ax , 0xb800
+    mov es , ax
+    mov di , [bp + 8]
+    mov ah , [bp + 4]
+    mov si , [bp + 6]
+    cld
+
+l11_:
+    lodsb
+    stosw
+    loop l11_
+
+ex:
+    pop bx
+    pop si
+    pop es
+    pop ax
+    pop cx
+    pop di
+    pop bp
+    ret 6
+
+; <----(Box Printing Function for Start screen and End screen)---->
+box:
+    push bp
+    mov bp , sp
+    push ax
+    push es
+    push cx
+    push di
+
+    mov di , [bp + 6]
+    mov ax , 0xb800
+    mov es , ax
+    mov cx , 36
+    mov ax , [bp + 4]
+    cld
+    rep stosw
+
+    add di , 88
+    mov cx , 36
+    mov ax , [bp + 4]
+    cld 
+    rep stosw
+
+    add di , 88
+    mov cx , 36
+    mov ax , [bp + 4]
+    cld 
+    rep stosw
+
+    add di , 88
+    mov cx , 36
+    mov ax , [bp + 4]
+    cld 
+    rep stosw
+
+    pop di
+    pop cx
+    pop es
+    pop ax
+    pop bp
+    ret 4
+	
+;<-------------------(printing number)----------------->
+	printnum: push bp
+mov bp, sp
+push es
+push ax
+push bx
+push cx
+push dx
+push di
+mov ax, 0xb800
+mov es, ax ; point es to video base
+mov ax, [bp+6] ; load number in ax
+mov bx, 10 ; use base 10 for division
+mov cx, 0 ; initialize count of digits
+nextdigit: mov dx, 0 ; zero upper half of dividend
+div bx ; divide by 10
+add dl, 0x30 ; convert digit into ascii value
+push dx ; save ascii value on stack
+inc cx ; increment count of values
+cmp ax, 0 ; is the quotient zero
+jnz nextdigit ; if no divide it again
+mov di, [bp+4] ; point di to 70th column
+nextpos: pop dx ; remove a digit from the stack
+mov dh, 0x07 ; use normal attribute
+mov [es:di], dx
+add di, 2
+loop nextpos
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop es
+pop bp
+ret 4
+
+;for green background number printing
+printnum2:
+push bp
+mov bp, sp
+push es
+push ax
+push bx
+push cx
+push dx
+push di
+mov ax, 0xb800
+mov es, ax ; point es to video base
+mov ax, [bp+4] ; load number in ax
+mov bx, 10 ; use base 10 for division
+mov cx, 0 ; initialize count of digits
+nextdigitt: mov dx, 0 ; zero upper half of dividend
+div bx ; divide by 10
+add dl, 0x30 ; convert digit into ascii value
+push dx ; save ascii value on stack
+inc cx ; increment count of values
+cmp ax, 0 ; is the quotient zero
+jnz nextdigitt ; if no divide it again
+mov di, [bp+6] ; point di to 70th column
+nextposs: pop dx ; remove a digit from the stack
+mov dh, 0x7F ; use normal attribute
+mov [es:di], dx ; print char on screen
+add di, 2 ; move to next screen location
+loop nextposs ; repeat for all digits on stack
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop es
+pop bp
+ret 4
+
+; <----(Game Over Printing Function)---->
+gameover:
+    push bp
+    mov bp , sp
+    push ax
+    push es
+    push cx
+    push di
+
+    mov di , [bp + 6]
+    mov ax , 0xb800
+    mov es , ax
+    mov cx , 36
+    mov ax , [bp + 4]
+    cld
+    rep stosw
+
+    add di , 88
+    mov cx , 1
+    mov ax , [bp + 4]
+    cld 
+    rep stosw
+
+    add di , 68
+    mov cx , 1
+    mov ax , [bp + 4]
+    cld 
+    rep stosw
+
+    add di , 88
+    mov cx , 36
+    mov ax , [bp + 4]
+    cld 
+    rep stosw
+
+    pop di
+    pop cx
+    pop es
+    pop ax
+    pop bp
+    ret 4
+	
+;----------------(print string)-------------------->
+printstr:
+
+push bp
+mov bp,sp
+pusha
+push es
+mov si,[bp+6]
+mov ax,0xB800
+mov es, ax
+mov di,[bp+4]
+mov ah,0x07
+loop3: mov al,[si]
+	inc si
+	mov [es:di],ax
+	add di,2
+	cmp byte [si],'0'
+	jne loop3
+pop es
+popa
+pop bp
+ret 4
+
+;<--------------(generate random number from 0-N ,return on stack)--------->
+randG:
+   push bp
+   mov bp, sp
+   pusha
+   cmp word [rand], 0
+   jne next
+
+  MOV     AH, 00h   ; interrupt to get system timer in CX:DX 
+  INT     1AH
+  inc word [rand]
+  mov     [randnum], dx
+  jmp next1
+
+  next:
+  mov     ax, 25173          ; LCG Multiplier
+  mul     word  [randnum]     ; DX:AX = LCG multiplier * seed
+  add     ax, 13849          ; Add LCG increment value
+ 
+  mov     [randnum], ax          ; Update seed = return value
+
+ next1:xor dx, dx
+ mov ax, [randnum]
+ mov cx, [bp+4]
+ inc cx
+ div cx
+ 
+ mov [bp+6], dx
+ popa
+ pop bp
+ ret 2
+ 
+ 
+
+clearscr:
+    push ax
+    push es
+    push di
+    push cx
+
+	mov ax,0xB800
+	mov es,ax
+	mov di,0
+    mov cx,2000
+    mov ax,0x0720
+    rep stosw 
+    
+    pop cx
+    pop di
+    pop es
+    pop ax
+
+	ret
+kbisr1:
+    pusha
+    in al, 0x60
+
+    ; Check if left arrow key pressed
+    cmp al, 0x4B
+    jne cmp_next1
+    mov ax, 1
+    mov [cs:flag_left1], ax
+    jmp exit11
+
+cmp_next1:
+    ; Check if right arrow key pressed
+    cmp al, 0x4D
+    jne cmp_next2
+    mov ax, 1
+    mov [cs:flag_right1], ax
+    jmp exit11
+
+cmp_next2:
+    ; Check if left Shift key pressed
+    cmp al, 0x2A
+    jne check_shift_release
+    mov ax, 4               ; Set speed to 2x
+    mov [cs:box_speed], ax
+    jmp exit11
+
+check_shift_release:
+    ; Check if left Shift key released
+    cmp al, 0xAA
+    jne cmp_next3
+    mov ax, 2               ; Reset speed to normal
+    mov [cs:box_speed], ax
+    jmp exit11
+
+cmp_next3:
+    ; Check if left arrow key released
+    cmp al, 0xCB
+    jne cmp_next4
+    mov ax, 0
+    mov [cs:flag_left1], ax
+    jmp exit11
+
+cmp_next4:
+    ; Check if right arrow key released
+    cmp al, 0xCD
+    jne nomatch11
+    mov ax, 0
+    mov [cs:flag_right1], ax
+    jmp exit11
+
+nomatch11:
+    popa
+    jmp far [cs:oldkb]
+
+exit11:
+    mov al, 0x20
+    out 0x20, al
+    popa
+    iret
+
+timer1:
+    pusha
+    push es
+
+    ; Set Initial Position of Box
+    cmp word [cs:Initial], 1
+    jne check_at_left
+    mov ax, 0xB800
+    mov es, ax
+    mov di, 3920
+    mov word [es:di], 0x07DC
+    mov ax, 0
+    mov [cs:Initial], ax
+    mov [cs:missed], ax
+
+check_at_left:
+    ; Check if left arrow key pressed
+    cmp word [cs:flag_left1], 1
+    jne check_at_right
+
+    ; Erase previous box position
+    mov ax, 0xB800
+    mov es, ax
+    mov di, [cs:box1_location]
+    mov word [es:di], 0x0720
+
+    ; Update box position when moving left
+    mov ax, [cs:box_speed]
+    sub word [cs:box1_location], ax
+    cmp word [cs:box1_location], 3840
+    jae print_at_left
+
+    ; Draw new box at updated position
+    mov di, [cs:box1_location]
+    mov ax, 0xB800
+    mov es, ax
+    add di, 2
+    mov word [es:di], 0x0720
+    mov word [cs:box1_location], 3998
+    mov di, [cs:box1_location]
+    mov word [es:di], 0x07DC
+    jmp check_at_right
+
+print_at_left:
+    mov ax, 0xB800
+    mov es, ax
+    mov di, [cs:box1_location]
+    mov word [es:di], 0x07DC
+    add di, 2
+    mov word [es:di], 0x0720
+
+check_at_right:
+    ; Check if right arrow key pressed
+    cmp word [cs:flag_right1], 1
+    jne no_match
+
+    ; Erase previous box position
+    mov ax, 0xB800
+    mov es, ax
+    mov di, [cs:box1_location]
+    mov word [es:di], 0x0720
+
+    ; Update box position when moving right
+    mov ax, [cs:box_speed]
+    add word [cs:box1_location], ax
+    cmp word [cs:box1_location], 4000
+    jb print_at_right
+
+    ; Draw new box at updated position
+    mov di, [cs:box1_location]
+    mov ax, 0xB800
+    mov es, ax
+    sub di, 2
+    mov word [es:di], 0x0720
+    mov word [cs:box1_location], 3840
+    mov di, [cs:box1_location]
+    mov word [es:di], 0x07DC
+    jmp no_match
+
+print_at_right:
+    mov ax, 0xB800
+    mov es, ax
+    mov di, [cs:box1_location]
+    mov word [es:di], 0x07DC
+    sub di, 2
+    mov word [es:di], 0x0720
+
+no_match:
+    mov ax, 0xB800
+    mov es, ax
+
+    ; Increment the time_count
+    inc word [cs:time_count]
+
+    ; Check if one second has passed (60 cycles)
+    cmp word [cs:time_count], 60
+    jne lebel
+
+    ; Reset time_count and increment seconds counter
+    mov word [cs:time_count], 0
+    inc word [cs:seconds]
+
+lebel:
+    ; Display the seconds counter
+    mov ax, [cs:seconds]   ; Load seconds value
+    push ax                ; Push to stack for printnum
+    mov ax, 10             ; Base 10 for decimal display
+    push ax
+    call printnum          ; Call printnum to display seconds
+
+	
+	;display score
+	mov ax,score_str
+	push ax
+	push word 66
+	call printstr
+	
+	mov ax,[cs:score]
+	push ax
+	mov ax, 80
+	push ax
+	call printnum
+	
+	;print missed score
+	mov ax,missedstr
+	push ax
+	push word 124
+	call printstr
+	
+	mov ax,[cs:missed]
+	push ax
+	mov ax, 140
+	push ax
+	call printnum
+	
+	mov ax,[cs:time_count]
+	mov bx,7
+	div bl
+	cmp ah,0
+	jne move_next  
+	
+	mov di,[cs:alpha_location]
+	cmp di,3840
+	jb n1
+	cmp di,3998
+	ja n1
+	inc word [cs:missed]
+
+	
+	n1:
+	mov di,[cs:alpha_location]
+	mov dx,[es:di]
+	mov word [es:di],0x0720
+	add word [cs:alpha_location],160
+	mov di,[cs:alpha_location]
+	cmp di,[cs:box1_location]  
+	jne character1
+    inc word [cs:score]
+character1:
+    cmp di,3998
+    ja alphabet1
+    mov [es:di], dx
+    jmp move_next
+
+alphabet1:
+    ; Generate new random alpha
+    mov bx, 0
+    sub sp, 2
+
+    push 79
+    call randG
+    pop di
+    mov bl, 1
+    mov ax, 80
+    mul bl
+    add ax, di
+    shl ax, 1
+    mov di, ax
+
+    sub sp, 2
+    push 25
+    call randG
+    pop bx
+    mov bh, 0x07
+    add bx, 'A'
+    mov [es:di], bx
+
+    mov [cs:alpha_location], di
+
+move_next:
+    ; Adjust movement speed using speed_factor
+    mov ax, [cs:time_count]
+    mov bx, [cs:speed_factor] 
+    div bl
+    cmp ah, 0
+    jne move_next1
+
+    ; Check if character missed
+    mov di, [cs:alpha_location+2]
+    cmp di, 3840
+    jb n2
+    cmp di, 3998
+    ja n2
+
+    inc word [cs:missed]
+
+n2:
+    ; Move character to next position
+    mov di, [cs:alpha_location+2]
+    mov dx, [es:di]
+    mov word [es:di], 0x0720
+    add word [cs:alpha_location+2], 160
+    mov di, [cs:alpha_location+2]
+
+    ; Check collision with box
+    cmp di, [cs:box1_location]
+    jne character2
+
+    ; Increment score
+    inc word [cs:score]
+
+    ; Adjust speed_factor based on score
+    mov ax, [cs:score]
+    cmp ax, 8       
+    jb character2
+	
+	sub word [cs:speed_factor],6
+    cmp word[speed_factor],2
+	jne character2
+    mov word[speed_factor],10
+
+character2:
+    cmp di, 3998
+    ja alphabet2
+    mov [es:di], dx
+    jmp move_next1
+
+alphabet2:
+    ; Generate new random alpha position
+    mov bx, 0
+    sub sp, 2
+
+    push 79
+    call randG
+    pop di
+    mov bl, 1
+    mov ax, 80
+    mul bl
+    add ax, di
+    shl ax, 1
+    mov di, ax
+
+    ; Generate new random alpha ('A'-'Z')
+    sub sp, 2
+    push 25
+    call randG
+    pop bx
+    mov bh, 0x07
+    add bx, 'A'
+    mov [es:di], bx
+
+    ; Save character position
+    mov [cs:alpha_location+2], di
+
+move_next1:
+    ; Use speed_factor to control timing
+    mov ax, [cs:time_count]
+    mov bx, [cs:speed_factor1]
+    div bl
+    cmp ah, 0
+    jne move_next2
+
+    ; Check if character missed
+    mov di, [cs:alpha_location+4]
+    cmp di, 3840
+    jb n3
+    cmp di, 3998
+    ja n3
+    inc word [cs:missed]
+
+n3:
+    ; Clear current character and move down
+    mov di, [cs:alpha_location+4]
+    mov dx, [es:di]
+    mov word [es:di], 0x0720
+    add word [cs:alpha_location+4], 160
+    mov di, [cs:alpha_location+4]
+
+    ; Check for collision with box
+    cmp di, [cs:box1_location]
+    jne character3
+
+    ; Increment score
+    inc word [cs:score]
+
+
+character3:
+    cmp di, 3998
+    ja alphabet3
+    mov [es:di], dx
+    jmp move_next2
+
+alphabet3:
+    ; Generate new random alpha position
+    mov bx, 0
+    sub sp, 2
+
+    push 79
+    call randG
+    pop di
+    mov bl, 1
+    mov ax, 80
+    mul bl
+    add ax, di
+    shl ax, 1
+    mov di, ax
+
+    ; Generate new random alpha ('A'-'Z')
+    sub sp, 2
+    push 25
+    call randG
+    pop bx
+    mov bh, 0x07
+    add bx, 'A'
+    mov [es:di], bx
+
+    ; Save character position
+    mov [cs:alpha_location+4], di
+
+move_next2:
+    ; Use speed_factor for timing
+    mov ax, [cs:time_count]
+    mov bx, [cs:speed_factor]
+    div bl
+    cmp ah, 0
+    jne move_next3
+
+    ; Check if character missed
+    mov di, [cs:alpha_location+6]
+    cmp di, 3840
+    jb n4
+    cmp di, 3998
+    ja n4
+    inc word [cs:missed]
+
+n4:
+    ; Clear current character and move down
+    mov di, [cs:alpha_location+6]
+    mov dx, [es:di]
+    mov word [es:di], 0x0720
+    add word [cs:alpha_location+6], 160
+    mov di, [cs:alpha_location+6]
+
+    ; Check for collision with box
+    cmp di, [cs:box1_location]
+    jne character4
+
+    ; Increment score
+    inc word [cs:score]
+
+    ; Adjust speed dynamically based on score
+    mov ax, [cs:score]
+    cmp ax, 8          ; Increase speed if score > 8
+    jb character4
+	
+    sub word [cs:speed_factor],4
+    cmp word[speed_factor],2
+	jne character4
+    mov word[speed_factor],10
+
+
+character4:
+    cmp di, 3998
+    ja alphabet4
+    mov [es:di], dx
+    jmp move_next3
+
+alphabet4:
+    ; Generate new random alpha position
+    mov bx, 0
+    sub sp, 2
+
+    push 79
+    call randG
+    pop di
+    mov bl, 1
+    mov ax, 80
+    mul bl
+    add ax, di
+    shl ax, 1
+    mov di, ax
+
+    ; Generate new random alpha ('A'-'Z')
+    sub sp, 2
+    push 25
+    call randG
+    pop bx
+    mov bh, 0x07
+    add bx, 'A'
+    mov [es:di], bx
+
+    ; Save character position
+    mov [cs:alpha_location+6], di
+
+move_next3:
+    ; Use speed_factor for timing
+    mov ax, [cs:time_count]
+    mov bx, [cs:speed_factor]
+    div bl
+    cmp ah, 0
+    jne move_next4
+
+    ; Check if character missed
+    mov di, [cs:alpha_location+8]
+    cmp di, 3840
+    jb n5
+    cmp di, 3998
+    ja n5
+    inc word [cs:missed]
+
+n5:
+    ; Clear current character and move down
+    mov di, [cs:alpha_location+8]
+    mov dx, [es:di]
+    mov word [es:di], 0x0720
+    add word [cs:alpha_location+8], 160
+    mov di, [cs:alpha_location+8]
+
+    ; Check for collision with box
+    cmp di, [cs:box1_location]
+    jne character5
+
+    ; Increment score
+    inc word [cs:score]
+
+    ; Adjust speed dynamically based on score
+    mov ax, [cs:score]
+    cmp ax, 8        ; Increase speed if score > 8
+    jb character5
+    sub word [cs:speed_factor],2
+    cmp word[speed_factor],2
+	jne character5
+
+    mov word[speed_factor],10
+
+ 
+character5:
+	cmp di,3998
+	ja alphabet5
+	mov [es:di],dx 
+	jmp move_next4
+	alphabet5:
+	
+	mov bx,0
+	sub sp,2
+
+	push 79
+	call randG
+	pop di
+	mov bl,1
+	mov ax,80
+	mul bl
+	add ax,di
+	shl ax,1
+	mov di,ax
+ 
+	sub sp,2
+	push 25
+	call randG
+	pop bx
+	mov bh,0x07
+	add bx,'A'
+	mov [es:di],bx
+	
+	mov [cs:alpha_location+8 ],di
+	
+	move_next4:
+	
+	exit22:
+	cmp word [cs:missed],10
+	jb nn1
+	mov word[ter],1
+	
+	nn1:
+    cmp word [cs:score],10      ;winning scores of single player-game
+    jb nn2
+    mov word[ter1],1
+	
+    nn2:
+	mov di,[cs:box1_location]
+	mov word [es:di],0x07DC  
+	mov al, 0x20
+	out 0x20, al ; send EOI to PIC
+	pop es
+	popa
+	iret
+
+;<-------------(multiplayer)---------------->
+kbisr2: pusha 
+	in al,0x60
+	
+	cmp al,0x4B   ;if left array key pressed, flag_left1eft is set
+	jne next_cmp1
+	mov word [cs:flag_left1],1
+	jmp exit_
+	
+	next_cmp1:
+	cmp al,0x4D   ;if right array key pressed, flag_right1ight is set
+	jne next_cmp2
+	mov word [cs:flag_right1],1
+	jmp exit_
+	
+	next_cmp2:
+	cmp al,0xCB   ;if left shift key released, flag_left1 reset
+	jne next_cmp3
+	mov word [cs:flag_left1],0 
+	jmp exit_
+	
+	next_cmp3: 
+	cmp al, 0xCD   ;if right shift key released, flag_right1 reset
+	jne exit_
+	mov word [cs: flag_right1],0
+	jmp exit_
+	
+	exit_:
+	cmp al,0x1e  ;if key a pressed, flag_left2 is set
+	jne next_cmp4
+	mov word [cs:flag_left2],1
+	jmp exit_2
+	
+	next_cmp4:
+	cmp al,0x20   ;if key d pressed, flag_right2 is set
+	jne next_cmp5
+	mov word [cs:flag_right2],1
+	jmp exit_2
+	
+	next_cmp5:
+	cmp al,0x9e   ;if key a released, flag_left2 reset
+	jne next_cmp6
+	mov word [cs:flag_left2],0 
+	jmp exit_2
+	
+	next_cmp6: 
+	cmp al, 0xa0   ;if right shift key released, flag_right2 reset
+	jne nomatch22
+	mov word [cs: flag_right2],0
+	jmp exit_2
+	
+	nomatch22:popa
+	jmp far[cs:oldkb]
+	
+	exit_2:
+	mov al,0x20
+	out 0x20,al
+	popa
+	iret
+	
+	
+timer2:
+	pusha
+	push es
+	
+	cmp word [cs:Initial],1
+	jne check_at_left1
+	mov di,3920
+	mov ax, 0xB800
+	mov es,ax
+	mov word [es:di],0x07DC   ;Initially set box at middle position for player1
+	mov [cs:box1_location],di
+	mov di,3940
+	mov word [es:di],0x0fDC   ;Initially set box at middle position for player2
+	mov [cs:box1_location],di
+	mov word [cs:Initial],0
+	mov word [cs:missed],0
+	
+	
+	;<-----(player1 box (handle boundaries and left ,right movement))------>
+	check_at_left1:
+	cmp word [cs:flag_left1], 1
+	jne check_at_right1
+
+    sub word [cs:box1_location],2
+	cmp word [cs:box1_location],3840
+	jae print_at_left1	
+	
+	mov di,[cs:box1_location]
+	mov ax, 0xB800
+	mov es,ax
+	add di,2
+	mov word [es:di],0x0720
+	mov word [cs:box1_location],3998
+	mov di,[cs:box1_location]
+	mov word [es:di],0x07DC
+	
+	jmp check_at_right1
+	
+	print_at_left1:
+    mov ax, 0xB800
+	mov es,ax
+	mov di,[cs:box1_location]
+	mov word [es:di],0x07DC
+	add di,2
+	mov word [es:di],0x0720 
+	
+	check_at_right1:
+	cmp word [cs:flag_right1], 1
+	jne check_at_left2         ;for player2
+
+    add word [cs:box1_location],2
+	cmp word [cs:box1_location],4000
+	jb print_at_right1	
+	
+	mov di,[cs:box1_location]
+	mov ax, 0xB800
+	mov es,ax
+	sub di,2
+	mov word [es:di],0x0720
+	mov word [cs:box1_location],3840
+	mov di,[cs:box1_location]
+	mov word [es:di],0x07DC
+	
+	jmp check_at_left2 
+	
+	print_at_right1:
+    mov ax, 0xB800
+	mov es,ax
+	mov di,[cs:box1_location]
+	mov word [es:di],0x07DC
+	sub di,2
+	mov word [es:di],0x0720 
+	
+	;<-----(player2 box (handle boundaries and left ,right movement))------>
+	check_at_left2:
+	cmp word [cs:flag_left2], 1
+	jne check_at_right2
+
+    sub word [cs:box2_location],2
+	cmp word [cs:box2_location],3840
+	jae print_at_left2	
+	
+	mov di,[cs:box2_location]
+	mov ax, 0xB800
+	mov es,ax
+	add di,2
+	mov word [es:di],0x0720
+	mov word [cs:box2_location],3998
+	mov di,[cs:box2_location]
+	mov word [es:di],0x07DC
+	
+	jmp check_at_right2 
+	
+	print_at_left2:
+    mov ax, 0xB800
+	mov es,ax
+	mov di,[cs:box2_location]
+	mov word [es:di],0x07DC
+	add di,2
+	mov word [es:di],0x0720 
+	
+	check_at_right2:
+	cmp word [cs:flag_right2], 1
+	jne no_match1        
+
+    add word [cs:box2_location],2
+	cmp word [cs:box2_location],4000
+	jb print_at_right2	
+	
+	mov di,[cs:box2_location]
+	mov ax, 0xB800
+	mov es,ax
+	sub di,2
+	mov word [es:di],0x0720
+	mov word [cs:box2_location],3840
+	mov di,[cs:box2_location]
+	mov word [es:di],0x07DC
+	
+	jmp no_match1
+	
+	print_at_right2:
+    mov ax, 0xB800
+	mov es,ax
+	mov di,[cs:box2_location]
+	mov word [es:di],0x07DC
+	sub di,2
+	mov word [es:di],0x0720 
+	
+	
+	;<-----(time,score and misseded score printing)----->
+	no_match1:
+    mov ax, 0xB800
+    mov es, ax
+
+    inc word [cs:time_count]
+	
+    cmp word [cs:time_count], 60
+    jne lebel1
+
+  
+    mov word [cs:time_count], 0
+    inc word [cs:seconds]
+
+lebel1:
+    
+    mov ax, [cs:seconds]   ; Load seconds value
+    push ax                ; Push to stack for printnum
+    mov ax, 10             ; Base 10 for decimal display
+    push ax
+    call printnum          ; Call printnum to display seconds
+
+	
+	;print score
+	mov ax,score_str
+	push ax
+	push word 66
+	call printstr
+	
+	mov ax,[cs:score]
+	push ax
+	mov ax, 80
+	push ax
+	call printnum
+	
+	;print misseding
+	mov ax,missedstr
+	push ax
+	push word 124
+	call printstr
+	
+	mov ax,[cs:missed]
+	push ax
+	mov ax, 140
+	push ax
+	call printnum
+	
+	mov ax,[cs:time_count]
+	mov bx,7
+	div bl
+	cmp ah,0
+	jz f1
+	jmp movenext   
+	
+	f1:
+	mov di,[cs:alpha_location]
+	cmp di,3840
+	jb nt1
+	cmp di,3998
+	ja nt1
+	inc word [cs:missed]
+
+	
+	nt1:
+	mov di,[cs:alpha_location]
+	mov dx,[es:di]
+	mov word [es:di],0x0720
+	add word [cs:alpha_location],160
+	mov di,[cs:alpha_location]
+	
+	;check against player1 box
+	cmp di,[cs:box1_location] 
+je score_p
+
+;check against player2 box
+cmp di,[cs:box2_location] 
+je score_p	
+
+jmp check_end
+
+score_p:
+        inc word [cs:score]
+		check_end:
+ cmp di,3998
+	ja alpha1
+	mov [es:di],dx 
+	jmp movenext
+
+	
+	alpha1:
+	;Generate a new random alphabet
+	mov bx,0
+	sub sp,2
+
+	push 79
+	call randG
+	pop di
+	mov bl,1
+	mov ax,80
+	mul bl
+	add ax,di
+	shl ax,1
+	mov di,ax
+ 
+	sub sp,2
+	push 25
+	call randG
+	pop bx
+	mov bh,0x07
+	add bx,'A'
+	mov [es:di],bx
+	
+	mov [cs:alpha_location ],di
+	
+	movenext:
+	
+	mov ax,[cs:time_count]
+	mov bx,8
+	div bl
+	cmp ah,0
+	jz f2
+	jmp movenext1   
+	
+	f2:
+	mov di,[cs:alpha_location+2]
+	cmp di,3840
+	jb nt2
+	cmp di,3998
+	ja nt2
+	
+	inc word [cs:missed]
+
+	nt2:
+	mov di,[cs:alpha_location+2]
+	mov dx,[es:di]
+	mov word [es:di],0x0720
+	add word [cs:alpha_location+2],160
+	mov di,[cs:alpha_location+2]
+	;check against player1 box
+	cmp di,[cs:box1_location] 
+je score1_p
+
+;check against player2 box
+cmp di,[cs:box2_location] 
+je score1_p	
+
+jmp check_end1
+
+score1_p:
+        inc word [cs:score]
+		check_end1:
+	cmp di,3998
+	ja alpha2
+	mov [es:di],dx 
+	jmp movenext1
+	alpha2:
+	
+	mov bx,0
+	sub sp,2
+
+	push 79
+	call randG
+	pop di
+	mov bl,1
+	mov ax,80
+	mul bl
+	add ax,di
+	shl ax,1
+	mov di,ax
+ 
+	sub sp,2
+	push 25
+	call randG
+	pop bx
+	mov bh,0x07
+	add bx,'A'
+	mov [es:di],bx
+	
+	mov [cs:alpha_location+2 ],di
+	
+	movenext1:
+	
+	mov ax,[cs:time_count]
+	mov bx,9
+	div bl
+	cmp ah,0
+	jz f3
+	jmp movenext2   
+	
+	f3:
+	
+	mov di,[cs:alpha_location+4]
+	cmp di,3840
+	jb nt3
+	cmp di,3998
+	ja nt3
+	inc word [cs:missed]
+
+	
+	nt3:
+	
+	mov di,[cs:alpha_location+4]
+	mov dx,[es:di]
+	mov word [es:di],0x0720
+	add word [cs:alpha_location+4],160
+	mov di,[cs:alpha_location+4]
+	;check against player1 box
+	cmp di,[cs:box1_location] 
+je score2_p
+
+;check against player2 box
+cmp di,[cs:box2_location] 
+je score2_p	
+
+jmp check_end2
+
+score2_p:
+        inc word [cs:score]
+		check_end2:
+	cmp di,3998
+	ja alpha3
+	mov [es:di],dx 
+	jmp movenext2
+	alpha3:
+	
+	mov bx,0
+	sub sp,2
+
+	push 79
+	call randG
+	pop di
+	mov bl,1
+	mov ax,80
+	mul bl
+	add ax,di
+	shl ax,1
+	mov di,ax
+ 
+	sub sp,2
+	push 25
+	call randG
+	pop bx
+	mov bh,0x07
+	add bx,'A'
+	mov [es:di],bx
+	
+	mov [cs:alpha_location+4 ],di
+	
+	movenext2:
+	
+	mov ax,[cs:time_count]
+	mov bx,10
+	div bl
+	cmp ah,0
+	jz f4
+	jmp movenext3   
+	
+	f4:
+	mov di,[cs:alpha_location+6]
+	cmp di,3840
+	jb nt4
+	cmp di,3998
+	ja nt4
+	
+	inc word [cs:missed]
+
+	
+	nt4:
+	mov di,[cs:alpha_location+6]
+	mov dx,[es:di]
+	mov word [es:di],0x0720
+	add word [cs:alpha_location+6],160
+	mov di,[cs:alpha_location+6]
+	;check against player1 box
+	cmp di,[cs:box1_location] 
+je score3_p
+
+;check against player2 box
+cmp di,[cs:box2_location] 
+je score3_p	
+
+jmp check_end3
+
+score3_p:
+        inc word [cs:score]
+		check_end3:
+	cmp di,3998
+	ja alpha4
+	mov [es:di],dx 
+	jmp movenext3
+	alpha4:
+	
+	mov bx,0
+	sub sp,2
+
+	push 79
+	call randG
+	pop di
+	mov bl,1
+	mov ax,80
+	mul bl
+	add ax,di
+	shl ax,1
+	mov di,ax
+ 
+	sub sp,2
+	push 25
+	call randG
+	pop bx
+	mov bh,0x07
+	add bx,'A'
+	mov [es:di],bx
+	
+	mov [cs:alpha_location+6 ],di
+	
+	movenext3:
+	
+	mov ax,[cs:time_count]
+	mov bx,11
+	div bl
+	cmp ah,0
+	jz f5
+	jmp movenext4   
+	
+	f5:
+	mov di,[cs:alpha_location+8]
+	cmp di,3840
+	jb p5
+	cmp di,3998
+	ja p5
+	
+	inc word [cs:missed]
+
+	
+   p5:
+	mov di,[cs:alpha_location+8]
+	mov dx,[es:di]
+	mov word [es:di],0x0720
+	add word [cs:alpha_location+8],160
+	mov di,[cs:alpha_location+8]
+	;check against player1 box
+	cmp di,[cs:box1_location] 
+je score4_p
+
+;check against player2 box
+cmp di,[cs:box2_location] 
+je score4_p	
+
+jmp check_end4
+
+score4_p:
+        inc word [cs:score]
+	check_end4:
+	cmp di,3998
+	ja alpha5
+	mov [es:di],dx 
+	jmp movenext4
+	alpha5:
+	
+	mov bx,0
+	sub sp,2
+
+	push 79
+	call randG
+	pop di
+	mov bl,1
+	mov ax,80
+	mul bl
+	add ax,di
+	shl ax,1
+	mov di,ax
+ 
+	sub sp,2
+	push 25
+	call randG
+	pop bx
+	mov bh,0x07
+	add bx,'A'
+	mov [es:di],bx
+	
+	mov [cs:alpha_location+8 ],di
+	
+	movenext4:
+	
+	exit2:
+	cmp word [cs:missed],10
+	jb n11
+	mov word[ter],1
+	
+	n11:
+    cmp word [cs:score],20        ;winning scores of multiplayer-game
+    jb n22
+    mov word[ter2],1
+	
+    n22:
+	mov di,[cs:box1_location]
+	mov word [es:di],0x07DC  
+	mov al, 0x20
+	out 0x20, al ; send EOI to PIC
+	pop es
+	popa
+	iret	
+;---------(start)-------------------->
+start:
+  
+    call Background
+
+    ; Display the start screen with "Press ENTER to Start"
+    mov ax , 1320
+    push ax
+    mov ax , [att3]
+    push ax
+    call gameover
+
+    mov ax , 1490
+    push ax
+    mov ax , str2
+    push ax
+    mov ax , [att1]
+    push ax
+    call strinprint
+
+    mov ax , 2446
+    push ax
+    mov ax , str10
+    push ax
+    mov ax , [att6]
+    push ax
+    call strinprint
+	
+	;Display "Single player"
+	    mov ax , 1930
+    push ax
+    mov ax , str11
+    push ax
+    mov ax , [att6]
+    push ax
+    call strinprint
+
+   ;Display "Multi player"  
+    mov ax , 1996
+    push ax
+    mov ax , str12
+    push ax
+    mov ax , [att6]
+    push ax
+    call strinprint
+
+game_loop:
+    mov ah, 0
+    int 0x16           ;wait for a key press
+    cmp ah, 0x02       ; Check if key 1 pressed
+    jne label      
+	jmp singlePlayer_game  
+	
+	label:
+    cmp ah, 0x03      ; Check if key 2 pressed
+    jne label2      
+	jmp multiplayer_game
+	
+	label2:
+	cmp ah, 0x01      ; If ESC key, exit the game
+    jne game_loop      ; Otherwise, keep checking for keys
+	jmp endl
+
+;<-------------(singlePlayer_game)-------------------->
+	singlePlayer_game:
+	call clearscr
+	mov ax, 0xB800
+	mov es,ax
+	 
+	mov di,320
+	mov cx,5
+	mov si,0
+l2:
+	mov bx,0
+	sub sp,2
+
+	push 79
+	call randG
+	pop di
+	mov bl,2
+	mov ax,80
+	mul bl
+	add ax,di
+	shl ax,1
+	mov di,ax
+ 
+	sub sp,2
+	push 25
+	call randG
+	pop bx
+	mov bh,0x07
+	add bx,'A'
+	mov [es:di],bx
+	;sub di,160          
+	mov [cs:alpha_location + si],di
+	add si,2
+loop l2
+
+	
+xor ax, ax
+mov es, ax 
+
+mov ax,[es:9*4]
+mov [cs:oldkb],ax
+mov ax,[es:9*4+2]
+mov [cs:oldkb+2],ax
+
+
+cli ; disable interrupts
+
+mov word [es:9*4], kbisr1   ; store offset at n*4
+mov [es:9*4+2], cs          ; store segment at n*4+2
+
+mov ax, [es:8*4]
+	mov bx,[es:8*4+2]
+	mov [oldtime],ax
+	mov [oldtime+2],bx
+mov word [es:8*4], timer1     ; store offset at n*4
+mov [es:8*4+2], cs            ; store segment at n*4+2
+
+sti ; enable interrupts
+
+;infinite loop
+l3:
+	cmp word[cs:ter],1
+	je e1
+	cmp word[cs:ter1],1
+	jne l3
+	
+	e1:
+call clearscr
+
+
+cli
+mov ax, [cs:oldtime]
+mov  [es:8*4],ax
+mov ax, [cs:oldtime+2]
+mov  [es:8*4+2],ax
+
+mov ax,[cs:oldkb]
+mov [es:9*4],ax
+mov ax,[cs:oldkb+2]
+mov [es:9*4+2],ax
+sti
+
+mov ax,msg
+push ax
+push word 220
+call printstr
+
+mov ax,score_str
+push ax
+push word 380
+call printstr
+
+push word [cs:score]
+mov ax,400
+push ax
+call printnum
+
+mov ax,missedstr
+push ax
+push word 540
+call printstr
+
+push word [cs:missed]
+mov ax,560
+push ax
+call printnum
+jmp endl
+;<-------------(multiPlayer_game)-------------------------->
+multiplayer_game:
+	call clearscr
+	mov ax, 0xB800
+	mov es,ax
+	 
+	mov di,320
+	mov cx,5
+	mov si,0
+la1:
+	mov bx,0
+	sub sp,2
+
+	push 79
+	call randG
+	pop di
+	mov bl,2
+	mov ax,80
+	mul bl
+	add ax,di
+	shl ax,1
+	mov di,ax
+ 
+	sub sp,2
+	push 25
+	call randG
+	pop bx
+	mov bh,0x07
+	add bx,'A'
+	mov [es:di],bx
+	;sub di,160        
+	mov [cs:alpha_location + si],di
+	add si,2
+loop la1
+
+	
+xor ax, ax
+mov es, ax 
+
+mov ax,[es:9*4]
+mov [cs:oldkb],ax
+mov ax,[es:9*4+2]
+mov [cs:oldkb+2],ax
+
+
+cli ; disable interrupts
+
+mov word [es:9*4], kbisr2   ; store offset at n*4
+mov [es:9*4+2], cs          ; store segment at n*4+2
+
+mov ax, [es:8*4]
+	mov bx,[es:8*4+2]
+	mov [oldtime],ax
+	mov [oldtime+2],bx
+mov word [es:8*4], timer2   ; store offset at n*4
+mov [es:8*4+2], cs          ; store segment at n*4+2
+
+sti ; enable interrupts
+
+;infinite loop
+la2:
+	cmp word[cs:ter],1
+	je e2
+	cmp word[cs:ter2],1
+	jne la2
+	
+	e2:
+call clearscr
+
+
+cli
+mov ax, [cs:oldtime]
+mov  [es:8*4],ax
+mov ax, [cs:oldtime+2]
+mov  [es:8*4+2],ax
+
+mov ax,[cs:oldkb]
+mov [es:9*4],ax
+mov ax,[cs:oldkb+2]
+mov [es:9*4+2],ax
+sti
+
+mov ax,msg
+push ax
+push word 220
+call printstr
+
+mov ax,score_str
+push ax
+push word 380
+call printstr
+
+push word [cs:score]
+mov ax,400
+push ax
+call printnum
+
+mov ax,missedstr
+push ax
+push word 540
+call printstr
+
+push word [cs:missed]
+mov ax,560
+push ax
+call printnum
+
+;<-------------(ESCAPE SCREEN)---------------->
+endl:
+    call Background
+
+    ; Display the exit screen with "GAME OVER"
+    mov ax, 1320
+    push ax
+    mov ax, [att3]
+    push ax
+    call gameover
+
+    ; Display "GAME OVER" title
+    mov ax, 1498
+    push ax
+    mov ax, str7
+    push ax
+    mov ax, [att9]
+    push ax
+    call strinprint
+
+    ; Display "SCORE" label
+    mov ax, 2130
+    push ax
+    mov ax, str4
+    push ax
+    mov ax, [att6]
+    push ax
+    call strinprint
+
+    ; Print final score
+    mov ax, 2142          ; Adjust coordinate to position the score
+    push ax
+    push word [score]      ; Pass the score variable
+    call printnum2         ; Print final score using printnum routine
+
+    ; Display "TIMER" label
+    mov ax, 2150
+    push ax
+    mov ax, str8
+    push ax
+    mov ax, [att6]
+    push ax
+    call strinprint
+
+    ; Print final time
+    mov ax, 2162           ; Adjust coordinate to position the timer
+    push ax
+    push word [seconds]     ; Pass the time variable
+    call printnum2          ; Print final time using printnum routine
+
+    ; Determine and display the winner
+    cmp byte [ter1], 1
+    je player1_win
+
+    cmp byte [ter2], 1
+    je player2_win
+
+    cmp byte [ter], 1
+    je no_winner
+
+    jmp ask_play_again      ; Jump to ask if the player wants to play again
+
+player2_win:
+    mov ax, 2612
+    push ax
+    mov ax, str5
+    push ax
+    mov ax, [att6]
+    push ax
+    call strinprint
+    jmp ask_play_again
+
+player1_win:
+    mov ax, 2612
+    push ax
+    mov ax, str1
+    push ax
+    mov ax, [att6]
+    push ax
+    call strinprint
+    jmp ask_play_again
+
+no_winner:
+    mov ax, 2612
+    push ax
+    mov ax, str3
+    push ax
+    mov ax, [att6]
+    push ax
+    call strinprint
+
+ask_play_again:
+    ; Display "Do you want to play again? "
+    mov ax, 2280
+    push ax
+    mov ax, str_play_again
+    push ax
+    mov ax, [att6]
+    push ax
+    call strinprint
+
+    ; Wait for player's response
+    mov ah, 0
+    int 0x16
+    cmp al, 'Y'       ; If 'Y', restart the game
+    je reset_game
+    cmp al, 'N'       ; If 'N', exit the program
+    je exit_program
+    jmp ask_play_again ; Otherwise, ask again
+
+reset_game:
+    ; Reinitialize all game variables
+    mov word [score], 0
+    mov word [missed], 0
+    mov word [seconds], 0
+    mov word [ter], 0
+    mov byte [ter1], 0
+    mov byte [ter2], 0
+    mov word [flag_left1], 0
+    mov word [flag_right1], 0
+    mov word [box1_location], 3920
+    mov word [flag_left2], 0
+    mov word [flag_right2], 0
+    mov word [box2_location], 3920
+    mov word [time_count], 0
+    mov word [speed_factor], 10
+    mov word [speed_factor1], 9
+    mov word [randalpha], 0
+    mov word [alpha_location], 0
+
+    ; Reset alpha locations
+    mov cx, 5
+    lea di, [alpha_location]
+reset_alpha_loop:
+    mov word [di], 0
+    add di, 2
+    loop reset_alpha_loop
+
+    jmp start          ; Return to the start of the game
+
+exit_program:
+    ; Terminate the program gracefully
+    mov ax, 0x4c00
+    int 21h
+
